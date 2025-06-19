@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -51,9 +52,16 @@ import kotlin.time.Duration.Companion.seconds
  */
 private val logger by lazy { LoggerFactory.getLogger("Traceback") }
 
+/**
+ * This function is used to proceed with the link resolution process without waiting for focus gain.
+ * It is useful in scenarios where you want to ignore focus changes and proceed immediately. In this scenario
+ * the clipboard access won't be valid so can use it to enhance resolution heuristics.
+ */
+fun proceedIgnoringFocus(): Flow<Boolean> = flowOf(true)
+
 @SuppressLint("StaticFieldLeak")
 object Traceback {
-    const val DEEPLINK_DOMAIN_ATTRIBUTE = "traceback_domain"
+    private const val DEEPLINK_DOMAIN_ATTRIBUTE = "traceback_domain"
 
     private lateinit var appContext: Context
     private lateinit var webView: WebView
@@ -79,7 +87,17 @@ object Traceback {
         logger.info("Traceback SDK initialized with context: ${appContext.packageName}")
     }
 
-    suspend fun resolvePendingTracebackLink(intent: Intent, focusGainSignal: Flow<Boolean>): Result<Uri> {
+    /**
+     * Resolves a pending traceback link from the given intent. This function should be called when app is launched.
+     *
+     * The method will try to resolve valid link from the {Intent.data} itself, otherwise it will try to get the install referrer,
+     * and as final fallback we will try to reach the traceback server using
+     * heuristics based on the device information and clipboard content.
+     *
+     * @param intent The intent that launched the app
+     * @param focusGainSignal A flow that emits a signal when the app gains focus. This is used to ensure that clipboard access is valid.
+     */
+    suspend fun resolvePendingTracebackLink(intent: Intent, focusGainSignal: Flow<Boolean> = proceedIgnoringFocus()): Result<Uri> {
         val data = intent.data
         logger.info("Resolving pending traceback link: $data")
 
@@ -87,7 +105,7 @@ object Traceback {
         val info = packageManager.getPackageInfo(appContext.packageName, PackageManager.GET_META_DATA)
         val updatedAt = Instant.ofEpochMilli(info.lastUpdateTime)
 
-        val domain = info.applicationInfo.metaData.getString(DEEPLINK_DOMAIN_ATTRIBUTE) ?: run {
+        val domain = info.applicationInfo?.metaData?.getString(DEEPLINK_DOMAIN_ATTRIBUTE) ?: run {
             logger.warn("No domain attribute found in the application metadata")
             return Result.failure(IllegalArgumentException("No domain attribute found in the application metadata. Pleas add `<meta-data android:name=\"${DEEPLINK_DOMAIN_ATTRIBUTE}\" android:value=\"your.domain.com\" />` to your AndroidManifest.xml"))
         }
@@ -172,7 +190,7 @@ object Traceback {
                         deviceModelName = Build.MODEL,
                         languageCode = appLocale.toLanguageTag(),
                         languageCodeFromWebView = heuristics.language ?: "unknown",
-                        appVersionFromWebView = heuristics.appVersion ?: appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName,
+                        appVersionFromWebView = heuristics.appVersion ?: appContext.packageManager.getPackageInfo(appContext.packageName, 0)?.versionName ?: "unknown",
                         languageCodeRaw = appLocale.toLanguageTag().replace("-", "_"),
                         screenResolutionWidth = heuristics.screenWidth ?: displayMetrics.widthPixels,
                         screenResolutionHeight = heuristics.screenHeight ?: displayMetrics.heightPixels,
