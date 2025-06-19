@@ -5,6 +5,7 @@ package com.inqbarna.traceback.sdk
  * @version 1.0 18/6/25
  */
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -28,7 +29,8 @@ internal data class JsHeuristics(
 internal data class DeviceFingerprint(
     val appInstallationTime: Long,
     val osVersion: String,
-    val sdkVersion: String = "1.0.0",
+    val bundleId: String,
+    val sdkVersion: String,
     val uniqueMatchLinkToCheck: String? = null,
     val device: DeviceInfo
 )
@@ -45,22 +47,11 @@ internal data class DeviceInfo(
     val timezone: String
 )
 
-/*
-{
-  appInstallationTime: Date.now(), // del sistema de ficheros
-  bundleId: 'com.test.app', // de nativo
-  osVersion: '17.4', // de nativo
-  sdkVersion: '1.0.0', // esto da igual,,,, es para info
-  uniqueMatchLinkToCheck: 'http://127.0.0.1:5002/xxx?_lang=en-EN&_langs=en-EN&_tz=Europe%2FMadrid&_res=2560x1440&_dpr=1&_plt=MacIntel', // del clipboard nativo
-  device: {
-    deviceModelName: 'iPhone15,3', // del sistema
-    languageCode: 'en-EN', // del sistema
-    languageCodeFromWebView: 'en-EN', // del webview  generateDeviceLanguage
-    appVersionFromWebView: '17.4',  // del webview  generateDeviceAppVersion
-    languageCodeRaw: 'en_EN', // replacement "-" "_"
-    screenResolutionWidth: 390, // del sistema
-    screenResolutionHeight: 844, // del sistema
-    timezone: 'Europe/London' // del sistema
-  }
-}
- */
+@Serializable
+internal data class DeeplinkResponse(
+    @SerialName("match_type") val matchType: String,
+    @SerialName("request_ip_version") val requestIpVersion: String,
+    @SerialName("match_message") val matchMessage: String? = null,
+    @SerialName("deep_link_id") val deepLinkId: String? = null,
+)
+

@@ -1,6 +1,8 @@
 package com.inqbarna.traceback.sdk
 
 import android.annotation.SuppressLint
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
@@ -31,13 +34,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * @author David García (david.garcia@inqbarna.com)
@@ -73,7 +79,7 @@ object Traceback {
         logger.info("Traceback SDK initialized with context: ${appContext.packageName}")
     }
 
-    suspend fun resolvePendingTracebackLink(intent: Intent): Result<Uri> {
+    suspend fun resolvePendingTracebackLink(intent: Intent, focusGainSignal: Flow<Boolean>): Result<Uri> {
         val data = intent.data
         logger.info("Resolving pending traceback link: $data")
 
@@ -99,7 +105,7 @@ object Traceback {
                     getInstallReferrer()
                         .recoverCatching {
                             logger.info("Using default heuristics to resolve link for domain: $domain")
-                            useDefaultHeuristics(domain, updatedAt).getOrThrow()
+                            useDefaultHeuristics(domain, updatedAt, focusGainSignal).getOrThrow()
                         }
                 }
             } else {
@@ -112,7 +118,11 @@ object Traceback {
         }
     }
 
-    private suspend fun useDefaultHeuristics(domain: String, updatedAt: Instant): Result<Uri> {
+    private suspend fun useDefaultHeuristics(
+        domain: String,
+        updatedAt: Instant,
+        focusGainSignal: Flow<Boolean>
+    ): Result<Uri> {
         return withContext(Dispatchers.IO) {
             runCatching {
                 val client = HttpClient(OkHttp) {
@@ -122,12 +132,31 @@ object Traceback {
                     install(ContentNegotiation) {
                         json(
                             Json {
-                                encodeDefaults = true
                                 ignoreUnknownKeys = true
-                                prettyPrint = true
+                                explicitNulls = false
                             }
                         )
                     }
+                }
+
+                withTimeoutOrNull(1.seconds) {
+                    // await app in focus before proceeding to ensure clipboard access is valid
+                    focusGainSignal.first { true }
+                }
+
+                val clipboardManager = appContext.getSystemService<ClipboardManager>()!!
+                val clipboardUri = if (clipboardManager.hasPrimaryClip() && clipboardManager.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
+                    val clip = clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString()
+                    if (!clip.isNullOrEmpty()) {
+                        logger.info("Using clipboard content as link: $clip")
+                        clip.toHttpUrlOrNull()?.toString()
+                    } else {
+                        logger.warn("Clipboard content is empty, proceeding with heuristics")
+                        null
+                    }
+                } else {
+                    logger.info("No valid clipboard content found, proceeding with heuristics")
+                    null
                 }
 
                 val heuristics = loadHeuristicsFromWebView()
@@ -136,14 +165,15 @@ object Traceback {
                 val requestPayload = DeviceFingerprint(
                     appInstallationTime = updatedAt.toEpochMilli(),
                     osVersion = Build.VERSION.RELEASE,
+                    bundleId = appContext.packageName,
                     sdkVersion = "1.0.0",
-                    uniqueMatchLinkToCheck = null,
+                    uniqueMatchLinkToCheck = clipboardUri,
                     device = DeviceInfo(
                         deviceModelName = Build.MODEL,
-                        languageCode = appLocale.language,
+                        languageCode = appLocale.toLanguageTag(),
                         languageCodeFromWebView = heuristics.language ?: "unknown",
                         appVersionFromWebView = heuristics.appVersion ?: appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName,
-                        languageCodeRaw = appLocale.language.replace("-", "_"),
+                        languageCodeRaw = appLocale.toLanguageTag().replace("-", "_"),
                         screenResolutionWidth = heuristics.screenWidth ?: displayMetrics.widthPixels,
                         screenResolutionHeight = heuristics.screenHeight ?: displayMetrics.heightPixels,
                         timezone = heuristics.timezone ?: ZoneId.systemDefault().toString()
@@ -157,9 +187,14 @@ object Traceback {
                 }
 
                 if (response.status.isSuccess()) {
-                    val responseUri = response.body<String>().toUri()
-                    logger.info("Successfully resolved link with heuristics: $responseUri")
-                    responseUri
+                    val responseData = response.body<DeeplinkResponse>()
+                    val deepLinkId = responseData.deepLinkId?.toHttpUrlOrNull()?.queryParameter("link")
+                    if (!deepLinkId.isNullOrEmpty()) {
+                        logger.info("Successfully resolved link with heuristics: $deepLinkId")
+                        deepLinkId.toUri()
+                    } else {
+                        throw Exception("No deep link ID found in the response")
+                    }
                 } else {
                     logger.error("Failed to resolve link with heuristics, status: ${response.status}")
                     throw Exception("Failed to resolve link with heuristics, status: ${response.status}")
