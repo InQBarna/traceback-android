@@ -103,7 +103,7 @@ object Traceback {
 
         val packageManager = appContext.packageManager
         val info = packageManager.getPackageInfo(appContext.packageName, PackageManager.GET_META_DATA)
-        val updatedAt = Instant.ofEpochMilli(info.lastUpdateTime)
+        val updatedAt = Instant.ofEpochMilli(info.firstInstallTime)
 
         val domain = info.applicationInfo?.metaData?.getString(DEEPLINK_DOMAIN_ATTRIBUTE) ?: run {
             logger.warn("No domain attribute found in the application metadata")
