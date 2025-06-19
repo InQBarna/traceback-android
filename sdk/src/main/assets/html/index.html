@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<body>
+<p><h1>Just This!</h1></p>
+</body>
+
+<script>
+
+  function collectHeuristics() {
+    console.log('Collecting heuristics...');
+    const heuristics = {
+      language: navigator.language || null,
+      languages: navigator.languages || null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+      screenWidth: window.screen.width,
+      screenHeight: window.screen.height,
+      devicePixelRatio: window.devicePixelRatio || null,
+      platform: navigator.platform || null,
+      userAgent: navigator.userAgent || null,
+      connectionType: navigator.connection?.effectiveType || null,
+      hardwareConcurrency: navigator.hardwareConcurrency || null,
+      memory: navigator.deviceMemory || null,
+      colorDepth: window.screen.colorDepth || null,
+      appVersion: navigator.appVersion || null,
+    };
+    if (window.AndroidInterface && typeof window.AndroidInterface.receiveHeuristics === 'function') {
+      // For objects, stringify before sending
+      window.AndroidInterface.receiveHeuristics(JSON.stringify(heuristics));
+    } else {
+        console.warn('AndroidInterface not available or receiveHeuristics method not found.');
+    }
+  }
+
+  console.log('Heuristics collection script loaded.');
+</script>
+
+</html>

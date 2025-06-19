@@ -1,6 +1,7 @@
 [versions]
 agp = "8.11.0-rc02"
-kotlin = "2.0.21"
+kotlin = "2.1.21"
+kspVersion = "2.1.21-2.0.1"
 coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -12,6 +13,7 @@ espressoCoreVersion = "3.0.2"
 appcompatV7 = "28.0.0"
 org-slf4j = "2.0.17"
 activityCompose = "1.8.0"
+ktorVersion = "3.1.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -27,6 +29,11 @@ appcompat-v7 = { group = "com.android.support", name = "appcompat-v7", version.r
 slf4j = "uk.uuid.slf4j:slf4j-android:2.0.17-0"
 slf4jApi = { module = "org.slf4j:slf4j-api", version.ref = "org-slf4j" }
 
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorVersion" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktorVersion" }
+ktor-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorVersion" }
+ktor-client-serialization = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorVersion" }
+
 coreLibraryDesugaring = { group="com.android.tools", name= "desugar_jdk_libs", version = "2.1.5" }
 
 androidx-compose-bom = "androidx.compose:compose-bom:2025.06.00"
@@ -36,9 +43,10 @@ androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
-androidx-activityCompose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
-kotlinx-serializationJson = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
 google-installreferrer = "com.android.installreferrer:installreferrer:2.2"
+
 
 [bundles]
 compose = [
@@ -47,7 +55,7 @@ compose = [
     "androidx-compose-ui",
     "androidx-compose-ui-graphics",
     "androidx-compose-ui-tooling-preview",
-    "androidx-activityCompose"
+    "androidx-activity-compose"
 ]
 
 [plugins]
@@ -56,4 +64,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "kspVersion" }
 
