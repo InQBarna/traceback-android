@@ -5,11 +5,13 @@ import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.core.content.edit
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import com.android.installreferrer.api.InstallReferrerClient
@@ -59,9 +61,11 @@ private val logger by lazy { LoggerFactory.getLogger("Traceback") }
  */
 fun proceedIgnoringFocus(): Flow<Boolean> = flowOf(true)
 
+private const val KeyTracebackLinkResolved = "traceback_link_resolved"
+
 @SuppressLint("StaticFieldLeak")
 object Traceback {
-    private const val DEEPLINK_DOMAIN_ATTRIBUTE = "traceback_domain"
+    private const val DEEPLINK_DOMAIN_ATTRIBUTE = "com.inqbarna.traceback.domain"
 
     private lateinit var appContext: Context
     private lateinit var webView: WebView
@@ -87,6 +91,28 @@ object Traceback {
         logger.info("Traceback SDK initialized with context: ${appContext.packageName}")
     }
 
+    private suspend fun openPrefs(): SharedPreferences {
+        return withContext(Dispatchers.IO) {
+            appContext.getSharedPreferences("traceback_prefs", Context.MODE_PRIVATE).also {
+                logger.info("Opened SharedPreferences for Traceback SDK")
+            }
+        }
+    }
+
+    private suspend fun <T> SharedPreferences.readPrefs(block: SharedPreferences.() -> T): T {
+        return withContext(Dispatchers.IO) {
+            block(this@readPrefs)
+        }
+    }
+
+    private suspend fun <T> SharedPreferences.editPrefs(block: SharedPreferences.Editor.() -> T) {
+        return withContext(Dispatchers.IO) {
+            edit {
+                block(this)
+            }
+        }
+    }
+
     /**
      * Resolves a pending traceback link from the given intent. This function should be called when app is launched.
      *
@@ -107,7 +133,7 @@ object Traceback {
 
         val domain = info.applicationInfo?.metaData?.getString(DEEPLINK_DOMAIN_ATTRIBUTE) ?: run {
             logger.warn("No domain attribute found in the application metadata")
-            return Result.failure(IllegalArgumentException("No domain attribute found in the application metadata. Pleas add `<meta-data android:name=\"${DEEPLINK_DOMAIN_ATTRIBUTE}\" android:value=\"your.domain.com\" />` to your AndroidManifest.xml"))
+            return Result.failure(IllegalArgumentException("No domain attribute found in the application metadata. Please add `<meta-data android:name=\"${DEEPLINK_DOMAIN_ATTRIBUTE}\" android:value=\"your.domain.com\" />` to your AndroidManifest.xml"))
         }
 
         logger.info("Using domain: $domain for link resolution")
@@ -115,7 +141,8 @@ object Traceback {
         data?.getQueryParameter("link").let { link ->
             return if (link.isNullOrEmpty()) {
                 logger.warn("No link parameter found in the intent data")
-                if (updatedAt.isBefore(Instant.now().minus(Duration.ofMinutes(30)))) {
+                val prefs = openPrefs()
+                if (updatedAt.isBefore(Instant.now().minus(Duration.ofMinutes(30))) || prefs.readPrefs { getBoolean(KeyTracebackLinkResolved, false) }) {
                     logger.info("App was updated more than 30 minutes ago, won't try to get install referrer")
                     Result.failure(IllegalArgumentException("No link parameter found in the intent data"))
                 } else {
@@ -124,6 +151,9 @@ object Traceback {
                         .recoverCatching {
                             logger.info("Using default heuristics to resolve link for domain: $domain")
                             useDefaultHeuristics(domain, updatedAt, focusGainSignal).getOrThrow()
+                        }
+                        .onSuccess {
+                            prefs.editPrefs { putBoolean(KeyTracebackLinkResolved, true) }
                         }
                 }
             } else {
@@ -167,7 +197,11 @@ object Traceback {
                     val clip = clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString()
                     if (!clip.isNullOrEmpty()) {
                         logger.info("Using clipboard content as link: $clip")
-                        clip.toHttpUrlOrNull()?.toString()
+                        clip.toHttpUrlOrNull()?.toString()?.also {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                clipboardManager.clearPrimaryClip()
+                            }
+                        }
                     } else {
                         logger.warn("Clipboard content is empty, proceeding with heuristics")
                         null
@@ -273,7 +307,7 @@ object Traceback {
 
 private class AppToJavascriptConnector {
     private val _events = MutableSharedFlow<JsHeuristics>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    internal val events: Flow<JsHeuristics> = _events.asSharedFlow()
+    val events: Flow<JsHeuristics> = _events.asSharedFlow()
 
     @JavascriptInterface
     fun receiveHeuristics(heuristics: String) {

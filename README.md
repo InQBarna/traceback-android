@@ -78,3 +78,14 @@ class AppActivity : AppCompatActivity() {
 }
 ```
 
+### 5. Android Manifest Configuration
+
+You need to declare your extension domain as an `AndroidManifest.xml` meta-data entry:
+
+```xml
+<application>
+    <meta-data
+        android:name="com.inqbarna.traceback.domain"
+        android:value="your-traceback-domain.com" />
+</application>
+```
