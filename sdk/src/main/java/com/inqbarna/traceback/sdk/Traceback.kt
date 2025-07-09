@@ -268,6 +268,9 @@ object Traceback {
         client.startConnection(
             object : InstallReferrerStateListener {
                 override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                    if (!cont.isActive) {
+                        return
+                    }
                     when (responseCode) {
                         InstallReferrerClient.InstallReferrerResponse.OK -> {
                             val referrerUri = client.installReferrer.installReferrer
@@ -288,6 +291,9 @@ object Traceback {
                 }
 
                 override fun onInstallReferrerServiceDisconnected() {
+                    if (!cont.isActive) {
+                        return
+                    }
                     logger.warn("Install referrer service disconnected")
                     cont.cancel(Exception("Install referrer service disconnected"))
                 }
