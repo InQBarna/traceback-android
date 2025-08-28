@@ -285,7 +285,7 @@ object Traceback {
                         }
                         else -> {
                             logger.error("Failed to get install referrer, response code: $responseCode")
-                            cont.resumeWithException(Exception("Failed to get install referrer, response code: $responseCode"))
+                            cont.resume(Result.failure(Exception("Failed to get install referrer, response code: $responseCode")))
                         }
                     }
                 }
@@ -295,7 +295,7 @@ object Traceback {
                         return
                     }
                     logger.warn("Install referrer service disconnected")
-                    cont.cancel(Exception("Install referrer service disconnected"))
+                    cont.resume(Result.failure(Exception("Install referrer service disconnected")))
                 }
             }
         )
