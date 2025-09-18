@@ -23,6 +23,7 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 runner = { group = "com.android.support.test", name = "runner", version.ref = "runner" }
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
 espresso-core = { group = "com.android.support.test.espresso", name = "espresso-core", version.ref = "espressoCoreVersion" }
 appcompat-v7 = { group = "com.android.support", name = "appcompat-v7", version.ref = "appcompatV7" }
 
@@ -36,7 +37,7 @@ ktor-client-serialization = { module = "io.ktor:ktor-serialization-kotlinx-json"
 
 coreLibraryDesugaring = { group="com.android.tools", name= "desugar_jdk_libs", version = "2.1.5" }
 
-androidx-compose-bom = "androidx.compose:compose-bom:2025.06.00"
+androidx-compose-bom = "androidx.compose:compose-bom:2025.09.00"
 androidx-compose-material = { module = "androidx.compose.material3:material3" }
 androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
@@ -44,8 +45,11 @@ androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
-kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
+kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
 google-installreferrer = "com.android.installreferrer:installreferrer:2.2"
+
+truth = "com.google.truth:truth:1.4.5"
+logback = "ch.qos.logback:logback-classic:1.5.18"
 
 
 [bundles]

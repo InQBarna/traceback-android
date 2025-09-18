@@ -79,3 +79,14 @@ internal data class DeeplinkResponse(
     @SerialName("deep_link_id") val deepLinkId: String? = null,
 )
 
+internal fun MatchType.Companion.fromNetwork(str: String): MatchType {
+    return when (str) {
+        "unique" -> MatchType.Unique
+        "ambiguous" -> MatchType.Ambiguous
+        "none" -> MatchType.None
+        else -> {
+            throw IllegalArgumentException("Unknown match type received")
+        }
+    }
+}
+

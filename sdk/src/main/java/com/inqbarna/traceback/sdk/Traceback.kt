@@ -40,6 +40,10 @@ import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
+import com.inqbarna.traceback.sdk.impl.TracebackConfig
+import com.inqbarna.traceback.sdk.impl.createConfiguration
+import com.inqbarna.traceback.sdk.impl.heuristicsParameters
+import com.inqbarna.traceback.sdk.impl.onResolveSource
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
@@ -70,6 +74,7 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.reflect.full.createInstance
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -93,10 +98,29 @@ object Traceback {
 
     private lateinit var appContext: Context
     private lateinit var webView: WebView
+    private lateinit var config: TracebackConfig
     private val appToJsConnector = AppToJavascriptConnector()
     @SuppressLint("SetJavaScriptEnabled")
     internal fun init(context: Context) {
         appContext = context.applicationContext
+
+        val appInfo = appContext.packageManager.getApplicationInfo(appContext.packageName, PackageManager.GET_META_DATA)
+        val configProviderName = appInfo.metaData.getString("com.inqbarna.traceback.sdk.TracebackConfigProvider")
+        val configProvider: TracebackConfigProvider? = if (configProviderName != null) {
+            try {
+                val providerClass = Class.forName(configProviderName).kotlin
+                providerClass.createInstance() as TracebackConfigProvider
+            } catch (e: Throwable) {
+                logger.info("Failed to instantiate configuration provider '$configProviderName'", e)
+                null
+            }
+        } else {
+            logger.info("No configuration provider found, just using default settings")
+            null
+        }
+
+        config = createConfiguration(appContext, configProvider)
+
         webView = WebView(appContext).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -172,6 +196,9 @@ object Traceback {
                 } else {
                     logger.info("App was updated less than 30 minutes ago, good to try getting install referrer")
                     getInstallReferrer()
+                        .onSuccess {
+                            config.analyticClient.onResolveSource(ResolveSource.Referrer)
+                        }
                         .recoverCatching {
                             logger.info("Using default heuristics to resolve link for domain: $domain")
                             useDefaultHeuristics(domain, updatedAt, focusGainSignal).getOrThrow()
@@ -184,6 +211,7 @@ object Traceback {
                 kotlin.runCatching {
                     link.toUri().also {
                         logger.info("Resolved link: $it")
+                        config.analyticClient.onResolveSource(ResolveSource.Intent)
                     }
                 }
             }
@@ -211,27 +239,37 @@ object Traceback {
                     }
                 }
 
-                withTimeoutOrNull(1.seconds) {
-                    // await app in focus before proceeding to ensure clipboard access is valid
-                    focusGainSignal.first { true }
-                }
+                val clipboardUri = if (config.minMatchType != MatchType.Unique) {
+                    withTimeoutOrNull(1.seconds) {
+                        // await app in focus before proceeding to ensure clipboard access is valid
+                        focusGainSignal.first { true }
+                    }
 
-                val clipboardManager = appContext.getSystemService<ClipboardManager>()!!
-                val clipboardUri = if (clipboardManager.hasPrimaryClip() && clipboardManager.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
-                    val clip = clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString()
-                    if (!clip.isNullOrEmpty()) {
-                        logger.info("Using clipboard content as link: $clip")
+                    val clipboardManager = appContext.getSystemService<ClipboardManager>()!!
+                    if (clipboardManager.hasPrimaryClip() && clipboardManager.primaryClipDescription?.hasMimeType(
+                            ClipDescription.MIMETYPE_TEXT_PLAIN
+                        ) == true
+                    ) {
+                        val clip =
+                            clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(appContext)
+                                ?.toString()
+                        if (!clip.isNullOrEmpty()) {
+                            logger.info("Using clipboard content as link: $clip")
                         clip.toHttpUrlOrNull()?.toString()?.also {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                                 clipboardManager.clearPrimaryClip()
                             }
                         }
+                        } else {
+                            logger.warn("Clipboard content is empty, proceeding with heuristics")
+                            null
+                        }
                     } else {
-                        logger.warn("Clipboard content is empty, proceeding with heuristics")
+                        logger.info("No valid clipboard content found, proceeding with heuristics")
                         null
                     }
                 } else {
-                    logger.info("No valid clipboard content found, proceeding with heuristics")
+                    logger.info("Won't use clipboard, match type is not unique")
                     null
                 }
 
@@ -264,9 +302,21 @@ object Traceback {
 
                 if (response.status.isSuccess()) {
                     val responseData = response.body<DeeplinkResponse>()
+                    val matchType = MatchType.fromNetwork(responseData.matchType)
+                    val proceed = when (matchType) {
+                        MatchType.Unique -> true
+                        MatchType.None -> false
+                        MatchType.Ambiguous -> config.minMatchType != MatchType.Unique
+                    }
+
+                    if (!proceed) {
+                        throw Exception("Response had match type $matchType which is not enough to proceed")
+                    }
+
                     val deepLinkId = responseData.deepLinkId?.toHttpUrlOrNull()?.queryParameter("link")
                     if (!deepLinkId.isNullOrEmpty()) {
                         logger.info("Successfully resolved link with heuristics: $deepLinkId")
+                        config.analyticClient.onResolveSource(ResolveSource.Heuristics, heuristicsParameters(matchType, clipboardUri != null))
                         deepLinkId.toUri()
                     } else {
                         throw Exception("No deep link ID found in the response")

@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.slf4jApi)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlin.reflect)
     implementation(libs.google.installreferrer)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
@@ -81,6 +82,8 @@ dependencies {
     implementation(libs.ktor.content.negotiation)
 
     testImplementation(libs.junit)
+    testImplementation(libs.truth)
+    testImplementation(libs.logback)
     androidTestImplementation(libs.runner)
     androidTestImplementation(libs.androidx.espresso.core)
 }
