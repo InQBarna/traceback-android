@@ -23,6 +23,7 @@
  */
 
 import com.android.build.api.dsl.CommonExtension
+import com.android.build.api.dsl.LibraryExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
@@ -34,10 +35,14 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.kotlin.dokka) apply false
 }
 
+
+private val CompileSdkVersion = 36
+
 private fun CommonExtension<*, *, *, *, *, *>.setupCommonValues() {
-    compileSdk = 36
+    compileSdk = CompileSdkVersion
 
     defaultConfig {
         minSdk = 26
@@ -66,6 +71,14 @@ subprojects {
     pluginManager.withPlugin("com.android.base") {
         extensions.configure<CommonExtension<*, *, *, *, *, *>>("android") {
             setupCommonValues()
+
+            if (this is LibraryExtension) {
+                defaultConfig {
+                    aarMetadata {
+                        minCompileSdk = CompileSdkVersion
+                    }
+                }
+            }
         }
 
         dependencies {

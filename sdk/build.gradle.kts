@@ -1,3 +1,5 @@
+import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
+
 /*
  * MIT License
  *
@@ -26,6 +28,20 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.dokka)
+    `maven-publish`
+    signing
+}
+
+dokka {
+    moduleName.set("Android Traceback SDK")
+    dokkaSourceSets.main {
+        sourceLink {
+            localDirectory.set(file("src/main/java"))
+            remoteUrl.set(uri("http://localhost/"))
+        }
+        documentedVisibilities(VisibilityModifier.Public)
+    }
 }
 
 android {
@@ -45,6 +61,13 @@ android {
             )
         }
     }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
 }
 
 dependencies {
@@ -60,4 +83,64 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.runner)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+if (hasProperty("ossUser")) {
+    val libraryVersion = "1.0.0"
+    publishing {
+        publications {
+            register<MavenPublication>("release") {
+                groupId = "com.inqbarna"
+                artifactId = "traceback-sdk"
+                version = libraryVersion
+
+                pom {
+                    name = "Android Traceback SDK"
+                    description = "Traceback SDK provides functionality that before was achieved with Firebase Dynamic Links"
+                    url = "https://github.com/InQBarna/traceback-android"
+                    licenses {
+                        license {
+                            name = "MIT License"
+                            url = "https://github.com/InQBarna/traceback-android/blob/main/LICENSE"
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            name = "David García"
+                            id = "davidgarcia"
+                            email = "david.garcia@inqbarna.com"
+                            organization = "Inqbarna Kenkyuu Jo"
+                        }
+                    }
+
+                    scm {
+                        url = "https://github.com/InQBarna/traceback-android/"
+                    }
+                }
+
+                afterEvaluate {
+                    from(components["release"])
+                }
+            }
+        }
+
+        repositories {
+            maven {
+               name = "OSSS01"
+                val snapshotUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+                val stagingUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+                url = if (libraryVersion.endsWith("SNAPSHOT")) snapshotUrl else stagingUrl
+                credentials {
+                    username = project.property("ossUser") as String
+                    password = project.property("ossToken") as String
+                }
+            }
+        }
+    }
+
+    signing {
+        useGpgCmd()
+        sign(publishing.publications.named("release").get())
+    }
 }
