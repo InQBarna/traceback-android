@@ -306,7 +306,7 @@ object Traceback {
                     val proceed = when (matchType) {
                         MatchType.Unique -> true
                         MatchType.None -> false
-                        MatchType.Ambiguous -> config.minMatchType != MatchType.Unique
+                        else -> matchType >= config.minMatchType
                     }
 
                     if (!proceed) {

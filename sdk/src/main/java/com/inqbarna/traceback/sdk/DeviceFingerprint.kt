@@ -84,6 +84,7 @@ internal fun MatchType.Companion.fromNetwork(str: String): MatchType {
         "unique" -> MatchType.Unique
         "ambiguous" -> MatchType.Ambiguous
         "none" -> MatchType.None
+        "heuristics" -> MatchType.Heuristics
         else -> {
             throw IllegalArgumentException("Unknown match type received")
         }

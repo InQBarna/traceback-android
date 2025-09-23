@@ -27,6 +27,7 @@ package com.inqbarna.traceback.sdk
 enum class MatchType {
     None,
     Ambiguous,
+    Heuristics,
     Unique;
 
     companion object
