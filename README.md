@@ -1,5 +1,8 @@
 # Traceback SDK for Android
 
+![Maven Central Version](https://img.shields.io/maven-central/v/com.inqbarna/traceback-sdk)
+
+
 Traceback SDK is designed to work seamlessly with the [Firebase Traceback Extension](https://github.com/InQBarna/firebase-traceback-extension), providing a robust alternative to Firebase Dynamic Links for deep linking and attribution in Android applications.
 
 ## Features
@@ -20,6 +23,7 @@ implementation 'com.inqbarna:traceback-sdk:<latest-version>'
 ### 2. Initialization
 
 The SDK is initialized automatically via a `ContentProvider`. No manual setup is required.
+
 
 ### 3. Integration with Firebase Traceback Extension
 
@@ -89,3 +93,40 @@ You need to declare your extension domain as an `AndroidManifest.xml` meta-data 
         android:value="your-traceback-domain.com" />
 </application>
 ```
+
+#### 5.1. Optional Configuration
+
+By default, the Traceback SDK uses standard settings for link resolution and analytics. However, you can customize its behavior by providing your own configuration provider.
+
+To do this, implement a class that implements `TracebackConfigProvider` and declare it in your `AndroidManifest.xml` as a meta-data entry:
+
+```xml
+<application>
+    <!-- Required: Set your Traceback domain -->
+    <meta-data
+        android:name="com.inqbarna.traceback.domain"
+        android:value="your-traceback-domain.com" />
+
+    <!-- Optional: Provide a custom configuration provider -->
+    <meta-data
+        android:name="com.inqbarna.traceback.sdk.TracebackConfigProvider"
+        android:value="com.yourpackage.YourTracebackConfigProvider" />
+</application>
+```
+
+Your custom provider should implement the `configure` property, which is a lambda with receiver on `TracebackConfigBuilder`. For example:
+
+```kotlin
+class YourTracebackConfigProvider : TracebackConfigProvider {
+    override val configure = {
+        minMatchType(MatchType.Intent)
+        setAnalyticClient(object : AnalyticClient {
+            override fun onResolveSource(source: ResolveSource, parameters: ResolveParameters) {
+                // Custom analytics logic
+            }
+        })
+    }
+}
+```
+
+If no provider is specified, the SDK will use its default configuration. This mechanism allows you to adjust analytics, heuristics, or other advanced settings as needed for your app.
