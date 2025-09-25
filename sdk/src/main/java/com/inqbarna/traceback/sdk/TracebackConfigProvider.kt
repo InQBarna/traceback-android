@@ -45,6 +45,7 @@ enum class ResolveSource {
 }
 
 typealias ResolveParameters = Map<String, String>
+fun ResolveParameters.toMap(): Map<String, String> = this
 
 interface AnalyticClient {
     fun onResolveSource(source: ResolveSource, parameters: ResolveParameters)
