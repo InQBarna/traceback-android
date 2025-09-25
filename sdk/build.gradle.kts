@@ -70,6 +70,10 @@ android {
     }
 }
 
+val libraryVersion = "1.0.0"
+version = libraryVersion
+group = "com.inqbarna"
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.slf4jApi)
@@ -89,7 +93,6 @@ dependencies {
 }
 
 if (hasProperty("ossUser")) {
-    val libraryVersion = "1.0.0"
     publishing {
         publications {
             register<MavenPublication>("release") {
@@ -130,10 +133,8 @@ if (hasProperty("ossUser")) {
 
         repositories {
             maven {
-               name = "OSSS01"
-                val snapshotUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-                val stagingUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-                url = if (libraryVersion.endsWith("SNAPSHOT")) snapshotUrl else stagingUrl
+               name = "OssrhStagingApi"
+                url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
                 credentials {
                     username = project.property("ossUser") as String
                     password = project.property("ossToken") as String

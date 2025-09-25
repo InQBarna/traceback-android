@@ -36,7 +36,10 @@ plugins {
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.kotlin.dokka) apply false
+    alias(libs.plugins.nexus.publish)
 }
+
+group = "com.inqbarna"
 
 
 private val CompileSdkVersion = 36
@@ -62,6 +65,20 @@ private fun CommonExtension<*, *, *, *, *, *>.setupCommonValues() {
 
     lint {
         targetSdk = 36
+    }
+}
+
+if (hasProperty("ossUser")) {
+    nexusPublishing {
+        repositories {
+            // see https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#configuration
+            sonatype {
+                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+                snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
+                username = project.property("ossUser") as String
+                password = project.property("ossToken") as String
+            }
+        }
     }
 }
 
