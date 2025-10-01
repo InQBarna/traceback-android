@@ -67,4 +67,8 @@ private class DisabledAnalyticClient : AnalyticClient {
     override fun onResolveSource(source: ResolveSource, parameters: ResolveParameters) {
         /* no-op */
     }
+
+    override fun onResolveFail(source: ResolveSource, parameters: ResolveParameters) {
+        /* no-op */
+    }
 }

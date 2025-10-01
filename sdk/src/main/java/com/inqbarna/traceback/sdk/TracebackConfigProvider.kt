@@ -49,4 +49,5 @@ fun ResolveParameters.toMap(): Map<String, String> = this
 
 interface AnalyticClient {
     fun onResolveSource(source: ResolveSource, parameters: ResolveParameters)
+    fun onResolveFail(source: ResolveSource, parameters: ResolveParameters)
 }

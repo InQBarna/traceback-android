@@ -39,4 +39,8 @@ internal fun AnalyticClient.onResolveSource(source: ResolveSource) {
     onResolveSource(source, EmptyResolveParameters)
 }
 
+internal fun AnalyticClient.onResolveFail(source: ResolveSource) {
+    onResolveFail(source, EmptyResolveParameters)
+}
+
 internal fun heuristicsParameters(matchType: MatchType, hadClipboard: Boolean): ResolveParameters = mapOf("match_type" to matchType.name, "used_clipboard" to hadClipboard.toString())

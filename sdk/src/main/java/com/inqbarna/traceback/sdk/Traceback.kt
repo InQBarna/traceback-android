@@ -310,6 +310,7 @@ object Traceback {
                     }
 
                     if (!proceed) {
+                        config.analyticClient.onResolveFail(ResolveSource.Heuristics, heuristicsParameters(matchType, clipboardUri != null))
                         throw Exception("Response had match type $matchType which is not enough to proceed")
                     }
 
@@ -319,6 +320,7 @@ object Traceback {
                         config.analyticClient.onResolveSource(ResolveSource.Heuristics, heuristicsParameters(matchType, clipboardUri != null))
                         deepLinkId.toUri()
                     } else {
+                        config.analyticClient.onResolveFail(ResolveSource.Heuristics, heuristicsParameters(matchType, clipboardUri != null))
                         throw Exception("No deep link ID found in the response")
                     }
                 } else {
