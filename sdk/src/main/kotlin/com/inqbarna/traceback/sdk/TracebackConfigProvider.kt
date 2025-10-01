@@ -41,7 +41,7 @@ interface TracebackConfigBuilder {
 }
 
 enum class ResolveSource {
-    Intent, Referrer, Heuristics
+    Intent, Referrer, Heuristics, Campaign
 }
 
 typealias ResolveParameters = Map<String, String>

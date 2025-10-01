@@ -29,6 +29,24 @@ enum class MatchType {
     Ambiguous,
     Heuristics,
     Unique;
+}
+
+internal enum class InternalMatchType {
+    None,
+    Ambiguous,
+    Heuristics,
+    Unique,
+    Intent;
+
+
+    fun toPublic(): MatchType {
+        return when (this) {
+            None -> MatchType.None
+            Ambiguous -> MatchType.Ambiguous
+            Heuristics -> MatchType.Heuristics
+            Unique, Intent -> MatchType.Unique
+        }
+    }
 
     companion object
 }

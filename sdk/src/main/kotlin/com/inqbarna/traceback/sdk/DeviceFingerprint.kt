@@ -56,6 +56,7 @@ internal data class DeviceFingerprint(
     val bundleId: String,
     val sdkVersion: String,
     val uniqueMatchLinkToCheck: String? = null,
+    val intentLink: String? = null,
     val device: DeviceInfo
 )
 
@@ -77,14 +78,35 @@ internal data class DeeplinkResponse(
     @SerialName("request_ip_version") val requestIpVersion: String,
     @SerialName("match_message") val matchMessage: String? = null,
     @SerialName("deep_link_id") val deepLinkId: String? = null,
+    @SerialName("utm_medium") val utmMedium: String? = null,
+    @SerialName("utm_source") val utmSource: String? = null,
+    @SerialName("match_campaign") val campaignId: String? = null,
 )
 
-internal fun MatchType.Companion.fromNetwork(str: String): MatchType {
+internal data class HeuristicsResult(
+    val matchType: InternalMatchType,
+    val deepLinkId: String,
+    val utmMedium: String? = null,
+    val utmSource: String? = null,
+    val campaignId: String? = null,
+    val clipboardUsed: Boolean
+)
+
+@Serializable
+internal data class FollowLinkResponse(
+    @SerialName("result") val link: String
+)
+
+@Serializable
+internal data class ErrorResult(val error: String)
+
+internal fun InternalMatchType.Companion.fromNetwork(str: String): InternalMatchType {
     return when (str) {
-        "unique" -> MatchType.Unique
-        "ambiguous" -> MatchType.Ambiguous
-        "none" -> MatchType.None
-        "heuristics" -> MatchType.Heuristics
+        "unique" -> InternalMatchType.Unique
+        "ambiguous" -> InternalMatchType.Ambiguous
+        "none" -> InternalMatchType.None
+        "heuristics" -> InternalMatchType.Heuristics
+        "intent" -> InternalMatchType.Intent
         else -> {
             throw IllegalArgumentException("Unknown match type received")
         }

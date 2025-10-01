@@ -50,11 +50,16 @@ android {
     defaultConfig {
         testInstrumentationRunner = "android.support.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        manifestPlaceholders["TRACEBACK_SDK_VERSION"] = property("LIBRARY_VERSION") as String
     }
 
     buildTypes {
+        debug {
+            resValue("bool", "is_traceback_sdk_debug", "true")
+        }
         release {
             isMinifyEnabled = false
+            resValue("bool", "is_traceback_sdk_debug", "false")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -67,16 +72,20 @@ android {
             withSourcesJar()
             withJavadocJar()
         }
+
+        singleVariant("debug") {
+            withSourcesJar()
+            withJavadocJar()
+        }
     }
 }
 
-val libraryVersion = "1.0.0"
+val libraryVersion = property("LIBRARY_VERSION") as String
 version = libraryVersion
 group = "com.inqbarna"
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation(libs.slf4jApi)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlin.reflect)
     implementation(libs.google.installreferrer)
@@ -87,46 +96,62 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)
+    testImplementation(libs.androidx.junit)
     testImplementation(libs.logback)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.mockk)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.ktor.mock)
     androidTestImplementation(libs.runner)
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
 if (hasProperty("ossUser")) {
+
+    fun MavenPublication.commonConfig() {
+        groupId = "com.inqbarna"
+        artifactId = "traceback-sdk"
+        version = libraryVersion
+
+        pom {
+            name = "Android Traceback SDK"
+            description = "Traceback SDK provides functionality that before was achieved with Firebase Dynamic Links"
+            url = "https://github.com/InQBarna/traceback-android"
+            licenses {
+                license {
+                    name = "MIT License"
+                    url = "https://github.com/InQBarna/traceback-android/blob/main/LICENSE"
+                }
+            }
+
+            developers {
+                developer {
+                    name = "David García"
+                    id = "davidgarcia"
+                    email = "david.garcia@inqbarna.com"
+                    organization = "Inqbarna Kenkyuu Jo"
+                }
+            }
+
+            scm {
+                url = "https://github.com/InQBarna/traceback-android/"
+            }
+        }
+    }
+
     publishing {
         publications {
             register<MavenPublication>("release") {
-                groupId = "com.inqbarna"
-                artifactId = "traceback-sdk"
-                version = libraryVersion
-
-                pom {
-                    name = "Android Traceback SDK"
-                    description = "Traceback SDK provides functionality that before was achieved with Firebase Dynamic Links"
-                    url = "https://github.com/InQBarna/traceback-android"
-                    licenses {
-                        license {
-                            name = "MIT License"
-                            url = "https://github.com/InQBarna/traceback-android/blob/main/LICENSE"
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            name = "David García"
-                            id = "davidgarcia"
-                            email = "david.garcia@inqbarna.com"
-                            organization = "Inqbarna Kenkyuu Jo"
-                        }
-                    }
-
-                    scm {
-                        url = "https://github.com/InQBarna/traceback-android/"
-                    }
-                }
-
+                commonConfig()
                 afterEvaluate {
                     from(components["release"])
+                }
+            }
+
+            register<MavenPublication>("debug") {
+                commonConfig()
+                afterEvaluate {
+                    from(components["debug"])
                 }
             }
         }
@@ -145,6 +170,7 @@ if (hasProperty("ossUser")) {
 
     signing {
         useGpgCmd()
-        sign(publishing.publications.named("release").get())
+//        sign(publishing.publications.named("release").get())
+        sign(publishing.publications)
     }
 }

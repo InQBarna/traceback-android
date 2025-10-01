@@ -34,8 +34,8 @@ Follow the [Firebase Traceback Extension setup guide](https://github.com/InQBarn
 Call the method `resolvePendingTracebackLink` to start link resolution. This is intended to resolve traceback links and extract
 link of interest for the application.
 
-Traceback link will be of the form `https://your-traceback-domain.com/traceback?link=<your-link>`. This method will return the `link` at `link` parameter if any
-or resolve it through the backend if not present.
+Traceback link will be of the form `https://your-traceback-domain.com/somecontent. This method will resolve it through the backend to the proper
+deeplink you need to navigate too.
 
 ```kotlin
 override fun onCreate(savedStateBundle: Bundle?) {
@@ -114,15 +114,22 @@ To do this, implement a class that implements `TracebackConfigProvider` and decl
 </application>
 ```
 
-Your custom provider should implement the `configure` property, which is a lambda with receiver on `TracebackConfigBuilder`. For example:
+Your custom provider must expose a `configure` property which is a lambda with receiver on `TracebackConfigBuilder`. The SDK will instantiate your provider and invoke this lambda during initialization. For example:
 
 ```kotlin
 class YourTracebackConfigProvider : TracebackConfigProvider {
     override val configure = {
-        minMatchType(MatchType.Intent)
+        // Set the minimum match type the SDK should consider when resolving links
+        minMatchType(MatchType.Ambiguous)
+
+        // Provide a custom analytic client to receive resolution events
         setAnalyticClient(object : AnalyticClient {
             override fun onResolveSource(source: ResolveSource, parameters: ResolveParameters) {
                 // Custom analytics logic
+            }
+
+            override fun onResolveFail(source: ResolveSource, parameters: ResolveParameters) {
+                // Custom analytics logic for failures
             }
         })
     }

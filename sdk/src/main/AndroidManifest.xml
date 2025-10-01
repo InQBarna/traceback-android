@@ -29,5 +29,6 @@
             android:authorities="${applicationId}.InitTracebackProvider"
             android:name="com.inqbarna.traceback.sdk.InitTracebackProvider"
             android:exported="false"/>
+        <meta-data android:name="com.inqbarna.traceback.sdk.version" android:value="${TRACEBACK_SDK_VERSION}"/>
     </application>
 </manifest>

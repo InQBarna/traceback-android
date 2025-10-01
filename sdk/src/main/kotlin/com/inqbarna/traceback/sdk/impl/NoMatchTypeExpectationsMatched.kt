@@ -24,23 +24,8 @@
 
 package com.inqbarna.traceback.sdk.impl
 
-import com.inqbarna.traceback.sdk.AnalyticClient
-import com.inqbarna.traceback.sdk.MatchType
-import com.inqbarna.traceback.sdk.ResolveParameters
-import com.inqbarna.traceback.sdk.ResolveSource
-
 /**
  * @author David García (david.garcia@inqbarna.com)
- * @version 1.0 18/9/25
+ * @version 1.0 3/11/25
  */
-private val EmptyResolveParameters: ResolveParameters = mapOf()
-
-internal fun AnalyticClient.onResolveSource(source: ResolveSource) {
-    onResolveSource(source, EmptyResolveParameters)
-}
-
-internal fun AnalyticClient.onResolveFail(source: ResolveSource) {
-    onResolveFail(source, EmptyResolveParameters)
-}
-
-internal fun heuristicsParameters(matchType: MatchType, hadClipboard: Boolean): ResolveParameters = mapOf("match_type" to matchType.name, "used_clipboard" to hadClipboard.toString())
+class NoMatchTypeExpectationsMatched(message: String) : Exception(message)

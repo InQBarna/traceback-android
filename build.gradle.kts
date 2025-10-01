@@ -105,8 +105,8 @@ subprojects {
         pluginManager.withPlugin("org.jetbrains.kotlin.android") {
             extensions.configure<KotlinAndroidProjectExtension>("kotlin") {
                 compilerOptions {
-                    apiVersion.set(KotlinVersion.KOTLIN_2_1)
-                    languageVersion.set(KotlinVersion.KOTLIN_2_1)
+                    apiVersion.set(KotlinVersion.KOTLIN_2_2)
+                    languageVersion.set(KotlinVersion.KOTLIN_2_2)
                     jvmTarget.set(JvmTarget.JVM_17)
                     freeCompilerArgs.add("-opt-in=kotlin.RequiresOptIn")
                 }
