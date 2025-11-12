@@ -24,27 +24,37 @@
 
 package com.inqbarna.traceback.sdk
 
+import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.SharedPreferences
+import androidx.core.content.getSystemService
 import androidx.core.net.toUri
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Correspondence
 import com.inqbarna.traceback.sdk.base.BaseTracebackTest
+import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockEngineConfig
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.mockk.Called
-import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -59,6 +69,7 @@ internal class TracebackResolveTest : BaseTracebackTest() {
         const val POST_INSTALL_DEEPLINK = "https://example.com/welcome"
         const val INSTALL_REFERRER_OLD_SCHOOL = "https://example.com/oldschool"
         const val INSTALL_REFERRER_CAMPAIGN = "$CAMPAIGN_URL?link=$POST_INSTALL_DEEPLINK"
+        const val CLIPBOARD_UNIQUE_LINK = "https://traceback.com/?unique_link_to_check=$POST_INSTALL_DEEPLINK"
         const val REGULAR_LINK_WITH_NO_CAMPAIGN = "https://traceback.com/?link=$POST_INSTALL_DEEPLINK"
     }
 
@@ -195,6 +206,9 @@ internal class TracebackResolveTest : BaseTracebackTest() {
 
         val postInstallConfig = networkConfig { respondPostInstallSuccess("intent", POST_INSTALL_DEEPLINK, campaignId = "halloween") }
 
+        val clipboardManager = ApplicationProvider.getApplicationContext<Application>().getSystemService<ClipboardManager>()!!
+        clipboardManager.setPrimaryClip(ClipData.newPlainText("label", CLIPBOARD_UNIQUE_LINK))
+
         coEvery { installReferrerProvider.resolveInstallReferrer() } returns Result.success(INSTALL_REFERRER_CAMPAIGN.toUri())
 
         val engine = initializeTraceback(configProvider = config, networkMock = postInstallConfig) {
@@ -212,8 +226,22 @@ internal class TracebackResolveTest : BaseTracebackTest() {
         coVerify(exactly = 1) { editor.putStringSet("traceback_reported_campaigns", capture(campaigns)) }
         expect.that(campaigns.first()).containsExactly("halloween", "somecampaign")
 
-        expect.that(engine!!.requestHistory).comparingElementsUsing<HttpRequestData, String>(Correspondence.transforming( { request -> request.url.encodedPath }, "has path"))
+        val request = engine!!.getRequestBody()
+        expect.that(request!!).doesNotContainKey("uniqueMatchLinkToCheck")
+
+        expect.that(engine.requestHistory).comparingElementsUsing<HttpRequestData, String>(Correspondence.transforming( { request -> request.url.encodedPath }, "has path"))
             .containsExactly("/v1_postinstall_search_link")
+    }
+
+    private suspend fun MockEngine.getRequestBody(idx: Int = 0): JsonObject? {
+        val request = requestHistory.getOrNull(idx) ?: return null
+        val bodyString = request.body.toByteArray().inputStream()
+        val json = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
+
+        return json.decodeFromStream(bodyString)
     }
 
     @Test
@@ -282,11 +310,20 @@ internal class TracebackResolveTest : BaseTracebackTest() {
                 campaigns = emptySet()
             )
 
+            val config = object : TracebackConfigProvider {
+                override val configure: TracebackConfigBuilder.() -> Unit = {
+                    minMatchType(MatchType.Unique)
+                }
+            }
+
+            val clipboardManager = ApplicationProvider.getApplicationContext<Application>().getSystemService<ClipboardManager>()!!
+            clipboardManager.setPrimaryClip(ClipData.newPlainText("label", CLIPBOARD_UNIQUE_LINK))
+
             coEvery { installReferrerProvider.resolveInstallReferrer() } returns Result.failure(Exception("No referrer available"))
 
             val postInstallConfig = networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
 
-            val engine = initializeTraceback(networkMock = postInstallConfig) {
+            val engine = initializeTraceback(networkMock = postInstallConfig, configProvider = config) {
                 configureDomainAndVersion()
             }
 
@@ -298,7 +335,10 @@ internal class TracebackResolveTest : BaseTracebackTest() {
             coVerify(exactly = 1) { editor.putBoolean("traceback_referral_queried", true) }
             coVerify(exactly = 1) { editor.putBoolean("traceback_postinstall_search_executed", true) }
 
-            expect.that(engine!!.requestHistory).comparingElementsUsing<HttpRequestData, String>(Correspondence.transforming( { request -> request.url.encodedPath }, "has path"))
+            val request = engine!!.getRequestBody()
+            expect.withMessage("request.uniqueMatchLinkToCheck").that(request!!.getValue("uniqueMatchLinkToCheck").jsonPrimitive.contentOrNull).isEqualTo(CLIPBOARD_UNIQUE_LINK)
+
+            expect.that(engine.requestHistory).comparingElementsUsing<HttpRequestData, String>(Correspondence.transforming( { request -> request.url.encodedPath }, "has path"))
                 .containsExactly("/v1_postinstall_search_link")
         }
     }

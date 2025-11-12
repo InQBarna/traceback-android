@@ -31,14 +31,14 @@ import io.ktor.http.Url
  * @author David García (david.garcia@inqbarna.com)
  * @version 1.0 3/11/25
  */
-sealed class LinkKind() {
+internal sealed class LinkKind() {
     abstract val original: Url
     data class CampaignLink(override val original: Url, val campaignId: String, val deeplink: Url? = null) : LinkKind()
     data class RegularDeeplink(override val original: Url, val deeplink: Url) : LinkKind()
     data class Unknown(override val original: Url) : LinkKind()
 
 
-    companion object {
+    internal companion object {
         fun fromUri(uri: Uri, tracebackDomain: String? = null): LinkKind {
             val originalUrl = Url(uri.toString())
             val campaignId = originalUrl.encodedPath.trim('/')
@@ -65,3 +65,10 @@ sealed class LinkKind() {
         }
     }
 }
+
+internal val LinkKind.deeplink: Url?
+    get() = when (this) {
+        is LinkKind.CampaignLink -> this.deeplink
+        is LinkKind.RegularDeeplink -> this.deeplink
+        is LinkKind.Unknown -> null
+    }

@@ -38,7 +38,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner
  * @version 1.0 3/11/25
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
-class LinkKindParseTest(val linkText: String, val expectedKind: LinkKind) {
+internal class LinkKindParseTest(val linkText: String, val expectedKind: LinkKind) {
 
     @get:Rule
     val expect = Expect.create()

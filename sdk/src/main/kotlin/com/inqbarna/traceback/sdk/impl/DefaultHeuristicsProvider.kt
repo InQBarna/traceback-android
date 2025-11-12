@@ -25,19 +25,14 @@
 package com.inqbarna.traceback.sdk.impl
 
 import android.annotation.SuppressLint
-import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import androidx.core.content.getSystemService
 import com.inqbarna.traceback.sdk.DeviceFingerprint
 import com.inqbarna.traceback.sdk.DeviceInfo
 import com.inqbarna.traceback.sdk.HeuristicsInfoProvider
-import com.inqbarna.traceback.sdk.InternalMatchType
 import com.inqbarna.traceback.sdk.JsHeuristics
-import com.inqbarna.traceback.sdk.MatchType
 import com.inqbarna.traceback.sdk.Traceback.config
 import com.inqbarna.traceback.sdk.logger
 import kotlinx.coroutines.Dispatchers
@@ -47,17 +42,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.time.Instant
 import java.time.ZoneId
-import kotlin.time.Duration.Companion.seconds
 
-/**
- * @author David García (david.garcia@inqbarna.com)
- * @version 1.0 31/10/25
- */
 internal class DefaultHeuristicsProvider(
     private val appContext: Context,
     private val jsCollector: JsHeuristicCollector = WebViewBasedJsHeuristicCollector(appContext),
@@ -65,42 +53,11 @@ internal class DefaultHeuristicsProvider(
     @SuppressLint("VisibleForTests")
     override suspend fun loadHeuristics(
         updatedAt: Instant,
-        focusGainSignal: Flow<Boolean>,
+        clipboardContentProvider: ClipboardContentProvider,
         intentLink: String?
     ): Result<DeviceFingerprint> {
         return runCatching {
-            val clipboardUri = if (config.minMatchType == InternalMatchType.Unique) {
-                withTimeoutOrNull(1.seconds) {
-                    // await app in focus before proceeding to ensure clipboard access is valid
-                    focusGainSignal.first { true }
-                }
-
-                val clipboardManager = appContext.getSystemService<ClipboardManager>()!!
-                if (
-                    clipboardManager.hasPrimaryClip()
-                    && clipboardManager.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true
-                ) {
-                    val clip =
-                        clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString()
-                    if (!clip.isNullOrEmpty()) {
-                        logger.debug("Using clipboard content as link: $clip")
-                        clip.toHttpUrlOrNull()?.toString()?.also {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                clipboardManager.clearPrimaryClip()
-                            }
-                        }
-                    } else {
-                        logger.warn("Clipboard content is empty, proceeding with heuristics")
-                        null
-                    }
-                } else {
-                    logger.info("No valid clipboard content found, proceeding with heuristics")
-                    null
-                }
-            } else {
-                logger.info("Won't use clipboard, match type is not unique")
-                null
-            }
+            val clipboardUri = clipboardContentProvider.getClipboardLinkIfAvailable()
 
             val heuristics = jsCollector.loadHeuristics()
             val appLocale = appContext.resources.configuration.locales[0]

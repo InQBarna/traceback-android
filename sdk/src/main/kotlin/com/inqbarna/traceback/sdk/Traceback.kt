@@ -34,6 +34,7 @@ import android.net.Uri
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.inqbarna.traceback.sdk.impl.ClipboardContentProvider
 import com.inqbarna.traceback.sdk.impl.DefaultHeuristicsProvider
 import com.inqbarna.traceback.sdk.impl.DefaultInstallReferrerProvider
 import com.inqbarna.traceback.sdk.impl.DefaultPreferenceProvider
@@ -41,7 +42,9 @@ import com.inqbarna.traceback.sdk.impl.LinkKind
 import com.inqbarna.traceback.sdk.impl.NoMatchTypeExpectationsMatched
 import com.inqbarna.traceback.sdk.impl.TracebackConfig
 import com.inqbarna.traceback.sdk.impl.createConfiguration
+import com.inqbarna.traceback.sdk.impl.deeplink
 import com.inqbarna.traceback.sdk.impl.heuristicsParameters
+import com.inqbarna.traceback.sdk.impl.obtainClipboardContentProvider
 import com.inqbarna.traceback.sdk.impl.releaseableLazy
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -57,7 +60,6 @@ import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import io.ktor.http.parameters
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -250,7 +252,8 @@ object Traceback {
             }
         } else {
             // We need to execute post-install at least once
-            resolvePostInstallHeuristics(updatedAt, focusGainSignal, intentOrReferral?.takeUnless { it is LinkKind.Unknown }?.original?.toString())
+            val clipboardProvider = obtainClipboardContentProvider(focusGainSignal.takeIf { intentOrReferral?.deeplink == null }, appContext)
+            resolvePostInstallHeuristics(updatedAt, clipboardProvider, intentOrReferral?.takeUnless { it is LinkKind.Unknown }?.original?.toString())
                 .onSuccess {  response ->
                     response.campaignId?.let { campaignId ->
                         val campaigns = prefs.readPrefs { getStringSet(KeyCampaignsReported, emptySet())!!.toSet() }
@@ -368,10 +371,12 @@ object Traceback {
 
     private suspend fun resolvePostInstallHeuristics(
         updatedAt: Instant,
-        focusGainSignal: Flow<Boolean>,
+        clipboardContentProvider: ClipboardContentProvider,
         intentLink: String?
     ): Result<HeuristicsResult> {
-        return heuristicsInfoProvider.loadHeuristics(updatedAt, focusGainSignal, intentLink)
+
+
+        return heuristicsInfoProvider.loadHeuristics(updatedAt,clipboardContentProvider, intentLink)
             .mapCatching { requestPayload ->
                 val response = httpClient.post {
                     url("v1_postinstall_search_link")
@@ -423,7 +428,7 @@ internal interface InstallReferrerProvider {
 internal interface HeuristicsInfoProvider {
     suspend fun loadHeuristics(
         updatedAt: Instant,
-        focusGainSignal: Flow<Boolean>,
+        clipboardContentProvider: ClipboardContentProvider,
         intentLink: String?
     ): Result<DeviceFingerprint>
 }
