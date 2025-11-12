@@ -25,6 +25,7 @@
 package com.inqbarna.traceback.sdk.base
 
 import android.app.Application
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.core.content.pm.ApplicationInfoBuilder
@@ -41,6 +42,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockEngineConfig
 import io.ktor.client.engine.okhttp.OkHttp
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.After
 import org.junit.Rule
@@ -128,5 +130,19 @@ internal open class BaseTracebackTest {
             clock = clock
         )
         return engine
+    }
+
+    protected fun prepareMockSettings(referralChecked: Boolean = false, postInstallChecked: Boolean = false, campaigns: Set<String> = emptySet()): Pair<SharedPreferences, SharedPreferences.Editor> {
+        val prefs = mockk<SharedPreferences>(relaxed = true)
+        val editor = mockk<SharedPreferences.Editor>(relaxed = true)
+        every { prefs.getBoolean("traceback_referral_queried", any()) } returns referralChecked
+        every { prefs.getBoolean("traceback_postinstall_search_executed", any()) } returns postInstallChecked
+        every { prefs.getStringSet("traceback_reported_campaigns", any()) } returns campaigns
+        every { prefs.edit() } returns editor
+        every { editor.putBoolean(any(), any()) } returns editor
+        every { editor.apply() } returns Unit
+
+        coEvery { preferenceProvider.openPrefs() } returns prefs
+        return Pair(prefs, editor)
     }
 }

@@ -263,10 +263,14 @@ object Traceback {
                     }
                 }
                 .mapCatching {
-                    val proceed = when (it.matchType) {
-                        InternalMatchType.Unique, InternalMatchType.Intent -> true
-                        InternalMatchType.None -> false
-                        else -> it.matchType >= config.minMatchType
+                    val proceed = when {
+                        intentOrReferral is LinkKind.CampaignLink -> true
+                        it.campaignId != null -> true
+                        else -> when (it.matchType) {
+                            InternalMatchType.Unique, InternalMatchType.Intent -> true
+                            InternalMatchType.None -> false
+                            else -> it.matchType >= config.minMatchType
+                        }
                     }
 
                     if (!proceed) {

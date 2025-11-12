@@ -35,15 +35,13 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Correspondence
 import com.inqbarna.traceback.sdk.base.BaseTracebackTest
+import com.inqbarna.traceback.sdk.util.networkConfig
+import com.inqbarna.traceback.sdk.util.respondCampaignSuccess
+import com.inqbarna.traceback.sdk.util.respondFailure
+import com.inqbarna.traceback.sdk.util.respondPostInstallSuccess
 import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockEngineConfig
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
 import io.mockk.Called
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -81,7 +79,8 @@ internal class TracebackResolveTest : BaseTracebackTest() {
             campaigns = emptySet()
         )
 
-        val postInstallConfig = networkConfig { respondPostInstallSuccess("ambiguous", POST_INSTALL_DEEPLINK) }
+        val postInstallConfig =
+            networkConfig { respondPostInstallSuccess("ambiguous", POST_INSTALL_DEEPLINK) }
 
         val engine = initializeTraceback(networkMock = postInstallConfig) {
             configureDomainAndVersion()
@@ -106,7 +105,8 @@ internal class TracebackResolveTest : BaseTracebackTest() {
             campaigns = emptySet()
         )
 
-        val postInstallConfig = networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
+        val postInstallConfig =
+            networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
 
         coEvery { installReferrerProvider.resolveInstallReferrer() } returns Result.success(CAMPAIGN_URL.toUri())
 
@@ -204,7 +204,13 @@ internal class TracebackResolveTest : BaseTracebackTest() {
             }
         }
 
-        val postInstallConfig = networkConfig { respondPostInstallSuccess("intent", POST_INSTALL_DEEPLINK, campaignId = "halloween") }
+        val postInstallConfig = networkConfig {
+            respondPostInstallSuccess(
+                "intent",
+                POST_INSTALL_DEEPLINK,
+                campaignId = "halloween"
+            )
+        }
 
         val clipboardManager = ApplicationProvider.getApplicationContext<Application>().getSystemService<ClipboardManager>()!!
         clipboardManager.setPrimaryClip(ClipData.newPlainText("label", CLIPBOARD_UNIQUE_LINK))
@@ -252,7 +258,8 @@ internal class TracebackResolveTest : BaseTracebackTest() {
             campaigns = emptySet()
         )
 
-        val postInstallConfig = networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
+        val postInstallConfig =
+            networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
 
         coEvery { installReferrerProvider.resolveInstallReferrer() } returns Result.success(INSTALL_REFERRER_OLD_SCHOOL.toUri())
 
@@ -280,7 +287,8 @@ internal class TracebackResolveTest : BaseTracebackTest() {
             campaigns = emptySet()
         )
 
-        val postInstallConfig = networkConfig { respondPostInstallSuccess("unique", "https://somethigelse.com") }
+        val postInstallConfig =
+            networkConfig { respondPostInstallSuccess("unique", "https://somethigelse.com") }
 
         coEvery { installReferrerProvider.resolveInstallReferrer() } returns Result.success(REGULAR_LINK_WITH_NO_CAMPAIGN.toUri())
 
@@ -321,7 +329,8 @@ internal class TracebackResolveTest : BaseTracebackTest() {
 
             coEvery { installReferrerProvider.resolveInstallReferrer() } returns Result.failure(Exception("No referrer available"))
 
-            val postInstallConfig = networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
+            val postInstallConfig =
+                networkConfig { respondPostInstallSuccess("unique", POST_INSTALL_DEEPLINK) }
 
             val engine = initializeTraceback(networkMock = postInstallConfig, configProvider = config) {
                 configureDomainAndVersion()
@@ -386,8 +395,7 @@ internal class TracebackResolveTest : BaseTracebackTest() {
                 { request -> request.url.encodedPath },
                 "has path"
             )
-        )
-            .containsExactly("/v1_postinstall_search_link")
+        ).containsExactly("/v1_postinstall_search_link")
     }
 
     @Test
@@ -422,52 +430,4 @@ internal class TracebackResolveTest : BaseTracebackTest() {
         expect.withMessage("result.isFailure").that(result.isFailure).isTrue()
         expect.withMessage("result.exception.message").that(result.exceptionOrNull()?.message).startsWith("No domain attribute found in the application metadata.")
     }
-
-
-    private fun prepareMockSettings(referralChecked: Boolean = false, postInstallChecked: Boolean = false, campaigns: Set<String> = emptySet()): Pair<SharedPreferences, SharedPreferences.Editor> {
-        val prefs = mockk<SharedPreferences>(relaxed = true)
-        val editor = mockk<SharedPreferences.Editor>(relaxed = true)
-        every { prefs.getBoolean("traceback_referral_queried", any()) } returns referralChecked
-        every { prefs.getBoolean("traceback_postinstall_search_executed", any()) } returns postInstallChecked
-        every { prefs.getStringSet("traceback_reported_campaigns", any()) } returns campaigns
-        every { prefs.edit() } returns editor
-        every { editor.putBoolean(any(), any()) } returns editor
-        every { editor.apply() } returns Unit
-
-        coEvery { preferenceProvider.openPrefs() } returns prefs
-        return Pair(prefs, editor)
-    }
-}
-
-
-
-private fun networkConfig(responses: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData): MockEngineConfig.() -> Unit {
-    return {
-        addHandler { request ->
-            responses(this, request)
-        }
-    }
-}
-
-private fun MockRequestHandleScope.respondFailure(): HttpResponseData {
-    val body = """ { "error": "Not found" } """
-    return respond(body, HttpStatusCode.NotFound, headersOf("Content-Type", "application/json"))
-}
-
-private fun MockRequestHandleScope.respondPostInstallSuccess(
-    matchType: String,
-    deeplinkId: String,
-    campaignId: String? = null
-): HttpResponseData {
-    val body = """
-                    { "match_type": "$matchType", "request_ip_version": "v4", "deep_link_id": "$deeplinkId", "match_campaign": ${if (campaignId != null) "\"$campaignId\"" else null} }
-                """
-    return respond(body, HttpStatusCode.OK, headersOf("Content-Type", "application/json"))
-}
-
-private fun MockRequestHandleScope.respondCampaignSuccess(postInstallDeeplink: String): HttpResponseData {
-    val body = """
-                    { "result": "$postInstallDeeplink" }
-                """
-    return respond(body, HttpStatusCode.OK, headersOf("Content-Type", "application/json"))
 }

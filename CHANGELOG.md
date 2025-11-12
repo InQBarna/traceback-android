@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2025-11-12
+
 ### Changed
 - Avoid using clipboard if a `deepLink` is already available
+### Fixed
+- Resolution errors for campaign fixes
 
 ## [1.1.0] - 2025-11-10
 
@@ -51,8 +55,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Content provider ID configuration
 - Prevented exceptions from getInstallReferrer
 - Added coroutine active state checks
-
-[Unreleased]: https://github.com/InQBarna/traceback-sdk-android/compare/1.1.0...HEAD
-[1.1.0]: https://github.com/InQBarna/traceback-sdk-android/compare/1.0.1...1.1.0
-[1.0.1]: https://github.com/InQBarna/traceback-sdk-android/compare/1.0.0...1.0.1
-[1.0.0]: https://github.com/InQBarna/traceback-sdk-android/releases/tag/1.0.0
