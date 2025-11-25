@@ -67,7 +67,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import kotlin.reflect.full.createInstance
 
@@ -236,7 +235,7 @@ object Traceback {
 
         val intentOrReferral = intent.data
             ?.let { LinkKind.fromUri(it) }
-            ?: getInstallReferrer(updatedAt)
+            ?: getInstallReferrer()
                 .map { LinkKind.fromUri(it, domain) }
                 .onFailure {
                     logger.error("Failed to get install referrer: ${it.message}", it)
@@ -408,9 +407,9 @@ object Traceback {
 
     }
 
-    private suspend fun getInstallReferrer(updatedAt: Instant): Result<Uri> {
+    private suspend fun getInstallReferrer(): Result<Uri> {
         val prefs = openPrefs()
-        return if (updatedAt.isBefore(Instant.now(clock).minus(Duration.ofMinutes(30))) || prefs.readPrefs { getBoolean(KeyTracebackReferralQueried, false) }) {
+        return if (prefs.readPrefs { getBoolean(KeyTracebackReferralQueried, false) }) {
             logger.info("App was updated more than 30 minutes ago, won't try to get install referrer")
             Result.failure(IllegalArgumentException("Install referrer not requested"))
         } else {

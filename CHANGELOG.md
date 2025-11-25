@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.1.2] - 2025-11-25
+### Changed
+- Remove unnecessary condition to check for referral
+
 ## [1.1.1] - 2025-11-12
 
 ### Changed
