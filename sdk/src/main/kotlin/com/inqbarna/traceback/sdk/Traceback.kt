@@ -254,10 +254,21 @@ object Traceback {
             val clipboardProvider = obtainClipboardContentProvider(focusGainSignal.takeIf { intentOrReferral?.deeplink == null }, appContext)
             resolvePostInstallHeuristics(updatedAt, clipboardProvider, intentOrReferral?.takeUnless { it is LinkKind.Unknown }?.original?.toString())
                 .onSuccess {  response ->
+                    val campaigns = prefs.readPrefs { getStringSet(KeyCampaignsReported, emptySet())!!.toSet() }.toMutableSet()
+                    var didChange = false
                     response.campaignId?.let { campaignId ->
-                        val campaigns = prefs.readPrefs { getStringSet(KeyCampaignsReported, emptySet())!!.toSet() }
+                        campaigns.add(campaignId)
+                        didChange = true
+                    }
+
+                    if (intentOrReferral is LinkKind.CampaignLink) {
+                        campaigns.add(intentOrReferral.campaignId)
+                        didChange = true
+                    }
+
+                    if (didChange) {
                         prefs.editPrefs {
-                            putStringSet(KeyCampaignsReported, campaigns.toMutableSet().also { it.add(campaignId) })
+                            putStringSet(KeyCampaignsReported, campaigns)
                         }
                     }
                 }
