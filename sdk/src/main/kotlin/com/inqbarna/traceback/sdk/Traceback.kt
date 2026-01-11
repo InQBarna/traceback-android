@@ -234,7 +234,7 @@ object Traceback {
         }
 
         val intentOrReferral = intent.data
-            ?.let { LinkKind.fromUri(it) }
+            ?.let { LinkKind.fromUri(it, domain) }
             ?: getInstallReferrer()
                 .map { LinkKind.fromUri(it, domain) }
                 .onFailure {
