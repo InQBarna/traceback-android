@@ -108,8 +108,8 @@ subprojects {
 
         extensions.configure<KotlinAndroidProjectExtension> {
             compilerOptions {
-                apiVersion.set(KotlinVersion.KOTLIN_2_3)
-                languageVersion.set(KotlinVersion.KOTLIN_2_3)
+                apiVersion.set(KotlinVersion.KOTLIN_2_2)
+                languageVersion.set(KotlinVersion.KOTLIN_2_2)
                 jvmTarget.set(JvmTarget.JVM_17)
                 freeCompilerArgs.addAll(
                     "-opt-in=kotlin.RequiresOptIn",

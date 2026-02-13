@@ -29,6 +29,7 @@ import android.content.Context
 import android.os.Build
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import com.inqbarna.traceback.sdk.DeviceFingerprint
 import com.inqbarna.traceback.sdk.DeviceInfo
 import com.inqbarna.traceback.sdk.HeuristicsInfoProvider
@@ -37,14 +38,21 @@ import com.inqbarna.traceback.sdk.Traceback.config
 import com.inqbarna.traceback.sdk.logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.ZoneId
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.time.Duration.Companion.seconds
 
 internal class DefaultHeuristicsProvider(
     private val appContext: Context,
@@ -58,7 +66,7 @@ internal class DefaultHeuristicsProvider(
     ): Result<DeviceFingerprint> {
         return runCatching {
             val clipboardUri = clipboardContentProvider.getClipboardLinkIfAvailable()
-
+            logger.debug("Going to collect heuristics with clipboard content: $clipboardUri and intent link: $intentLink")
             val heuristics = jsCollector.loadHeuristics()
             val appLocale = appContext.resources.configuration.locales[0]
             val displayMetrics = appContext.resources.displayMetrics
@@ -86,23 +94,40 @@ internal class DefaultHeuristicsProvider(
 }
 
 private class WebViewBasedJsHeuristicCollector(
-    context: Context,
+    private val context: Context,
 ) : JsHeuristicCollector {
 
     private val appToJsConnector = AppToJavascriptConnector()
 
-    private val webView: WebView = WebView(context).apply {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        addJavascriptInterface(appToJsConnector, "AndroidInterface")
-        loadUrl("file:///android_asset/html/index.html")
-        webChromeClient = object : android.webkit.WebChromeClient() {
+    private var _webView: WebView? = null
 
-            override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
-                consoleMessage?.let {
-                    logger.debug("WebView Console: ${it.message()} at line ${it.lineNumber()} in ${it.sourceId()}")
+    private suspend fun getWebView(): WebView {
+        return _webView ?: initializeWebView().also {
+            _webView = it
+        }
+    }
+
+    private suspend fun initializeWebView(): WebView = suspendCancellableCoroutine { cont ->
+        logger.debug("Initializing WebView for heuristics collection")
+        WebView(context).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            addJavascriptInterface(appToJsConnector, "AndroidInterface")
+            loadUrl("file:///android_asset/html/index.html")
+            webChromeClient = object : android.webkit.WebChromeClient() {
+                override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                    consoleMessage?.let {
+                        logger.debug("WebView Console: ${it.message()} at line ${it.lineNumber()} in ${it.sourceId()}")
+                    }
+                    return true
                 }
-                return true
+            }
+
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String?) {
+                    logger.debug("WebView page finished loading: $url")
+                    cont.resume(view)
+                }
             }
         }
     }
@@ -110,8 +135,10 @@ private class WebViewBasedJsHeuristicCollector(
 
     override suspend fun loadHeuristics(): JsHeuristics {
         return withContext(Dispatchers.Main) {
-            webView.evaluateJavascript("window.collectHeuristics()", null)
-            appToJsConnector.events.first()
+            withTimeout(2.seconds) {
+                getWebView().evaluateJavascript("window.collectHeuristics()", null)
+                appToJsConnector.events.first()
+            }
         }
     }
 }
