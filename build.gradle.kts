@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.CommonExtension
 import com.android.build.api.dsl.LibraryExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -31,7 +32,6 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.kotlin.serialization) apply false
@@ -44,29 +44,6 @@ group = "com.inqbarna"
 
 private val CompileSdkVersion = 36
 
-private fun CommonExtension<*, *, *, *, *, *>.setupCommonValues() {
-    compileSdk = CompileSdkVersion
-
-    defaultConfig {
-        minSdk = 26
-    }
-
-    compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    testOptions {
-        unitTests {
-            isIncludeAndroidResources = true
-        }
-    }
-
-    lint {
-        targetSdk = 36
-    }
-}
 
 if (hasProperty("ossUser")) {
     nexusPublishing {
@@ -86,14 +63,41 @@ val catalog = the(VersionCatalogsExtension::class).named("libs")
 subprojects {
 
     pluginManager.withPlugin("com.android.base") {
-        extensions.configure<CommonExtension<*, *, *, *, *, *>>("android") {
-            setupCommonValues()
-
+        extensions.configure<CommonExtension>("android") {
             if (this is LibraryExtension) {
                 defaultConfig {
                     aarMetadata {
                         minCompileSdk = CompileSdkVersion
                     }
+                }
+            }
+
+            when (this) {
+                is ApplicationExtension -> {
+                    defaultConfig {
+                        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+                    }
+
+                    compileOptions {
+                        sourceCompatibility = JavaVersion.VERSION_17
+                        targetCompatibility = JavaVersion.VERSION_17
+                    }
+                }
+                is LibraryExtension -> {
+                    defaultConfig {
+                        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+                        aarMetadata {
+                            minCompileSdk = CompileSdkVersion
+                        }
+                    }
+
+                    compileOptions {
+                        sourceCompatibility = JavaVersion.VERSION_17
+                        targetCompatibility = JavaVersion.VERSION_17
+                    }
+
+
                 }
             }
         }
@@ -102,14 +106,18 @@ subprojects {
             add("coreLibraryDesugaring", catalog.findLibrary("coreLibraryDesugaring").get())
         }
 
-        pluginManager.withPlugin("org.jetbrains.kotlin.android") {
-            extensions.configure<KotlinAndroidProjectExtension>("kotlin") {
-                compilerOptions {
-                    apiVersion.set(KotlinVersion.KOTLIN_2_2)
-                    languageVersion.set(KotlinVersion.KOTLIN_2_2)
-                    jvmTarget.set(JvmTarget.JVM_17)
-                    freeCompilerArgs.add("-opt-in=kotlin.RequiresOptIn")
-                }
+        extensions.configure<KotlinAndroidProjectExtension> {
+            compilerOptions {
+                apiVersion.set(KotlinVersion.KOTLIN_2_3)
+                languageVersion.set(KotlinVersion.KOTLIN_2_3)
+                jvmTarget.set(JvmTarget.JVM_17)
+                freeCompilerArgs.addAll(
+                    "-opt-in=kotlin.RequiresOptIn",
+                    "-Xcontext-parameters",
+                    "-Xannotation-default-target=param-property",
+                    "-Xwhen-guards",
+                    "-Xexplicit-backing-fields"
+                )
             }
         }
     }

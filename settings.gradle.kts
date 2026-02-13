@@ -35,6 +35,43 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+plugins {
+    val agpVersion: String by settings
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    id("com.android.settings") version agpVersion
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+    versionCatalogs {
+        val agpVersion: String by settings
+        create("libs") {
+            version("agp", agpVersion)
+        }
+    }
+}
+
+android {
+    compileSdk {
+        version = release(36) {
+            minorApiLevel = 1
+        }
+    }
+
+    minSdk {
+        version = release(26)
+    }
+
+    targetSdk {
+        version = release(36)
+    }
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {

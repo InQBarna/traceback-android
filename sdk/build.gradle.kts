@@ -1,3 +1,4 @@
+import org.jetbrains.dokka.gradle.engine.parameters.KotlinPlatform
 import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
 
 /*
@@ -26,7 +27,6 @@ import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.dokka)
     `maven-publish`
@@ -35,12 +35,19 @@ plugins {
 
 dokka {
     moduleName.set("Android Traceback SDK")
-    dokkaSourceSets.main {
+
+    dokkaSourceSets.register("main") {
+        displayName = "Traceback SDK"
+        sourceRoots.from(file("src/main/kotlin"))
+        analysisPlatform = KotlinPlatform.AndroidJVM
+        documentedVisibilities(VisibilityModifier.Public)
+        enableAndroidDocumentationLink = true
+        enableKotlinStdLibDocumentationLink = true
+
         sourceLink {
-            localDirectory.set(file("src/main/java"))
+            localDirectory.set(file("src/main/kotlin"))
             remoteUrl.set(uri("http://localhost/"))
         }
-        documentedVisibilities(VisibilityModifier.Public)
     }
 }
 
@@ -51,6 +58,10 @@ android {
         testInstrumentationRunner = "android.support.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
         manifestPlaceholders["TRACEBACK_SDK_VERSION"] = property("LIBRARY_VERSION") as String
+    }
+
+    buildFeatures {
+        resValues = true
     }
 
     buildTypes {
@@ -93,6 +104,7 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.serialization)
     implementation(libs.ktor.content.negotiation)
+    dokkaPlugin(libs.dokka.android.documentation)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)
